@@ -17,6 +17,23 @@ logger = logging.getLogger(__name__)
 nepseAsync = AsyncNepse()
 nepseAsync.setTLSVerification(False)
 
+def _describe_payload(payload):
+    try:
+        if isinstance(payload, list):
+            first = payload[0] if payload else None
+            return f"list(len={len(payload)}, first={first})"
+        return f"{type(payload).__name__}({str(payload)[:200]})"
+    except Exception:
+        return f"{type(payload).__name__}"
+
+def _ensure_list_of_dicts(label: str, payload):
+    if not isinstance(payload, list):
+        return {"error": f"{label} expected list, got {type(payload).__name__}"}
+    for i, item in enumerate(payload):
+        if not isinstance(item, dict):
+            return {"error": f"{label} item {i} expected dict, got {type(item).__name__}"}
+    return {"ok": True}
+
 # Common validation functions for WebSocket
 def validate_stock_or_return_error(symbol: str):
     """Validate stock symbol and return error dict if invalid"""
@@ -47,25 +64,81 @@ def validate_index_or_return_error(index_name: str):
     return {"valid": True, "index_name": validation_result["index_name"]}
 
 async def _get_summary():
-    response = {obj["detail"]: obj["value"] for obj in await nepseAsync.getSummary()}
+    data = await nepseAsync.getSummary()
+    check = _ensure_list_of_dicts("Summary", data)
+    if "error" in check:
+        logger.error("Summary payload shape error: %s | %s", check["error"], _describe_payload(data))
+        return {"error": check["error"]}
+    response = {obj["detail"]: obj["value"] for obj in data}
     return response
 
 async def _get_nepse_index():
-    response = {obj["index"]: obj for obj in await nepseAsync.getNepseIndex()}
+    data = await nepseAsync.getNepseIndex()
+    check = _ensure_list_of_dicts("NepseIndex", data)
+    if "error" in check:
+        logger.error("NepseIndex payload shape error: %s | %s", check["error"], _describe_payload(data))
+        return {"error": check["error"]}
+    response = {obj["index"]: obj for obj in data}
     return response
 
 async def _get_nepse_subindices():
-    response = {obj["index"]: obj for obj in await nepseAsync.getNepseSubIndices()}
+    data = await nepseAsync.getNepseSubIndices()
+    check = _ensure_list_of_dicts("NepseSubIndices", data)
+    if "error" in check:
+        logger.error("NepseSubIndices payload shape error: %s | %s", check["error"], _describe_payload(data))
+        return {"error": check["error"]}
+    response = {obj["index"]: obj for obj in data}
     return response
 
 async def _get_trade_turnover_transaction_subindices():
-    companies = {company["symbol"]: company for company in await nepseAsync.getCompanyList()}
-    turnover = {obj["symbol"]: obj for obj in await nepseAsync.getTopTenTurnoverScrips()}
-    transaction = {obj["symbol"]: obj for obj in await nepseAsync.getTopTenTransactionScrips()}
-    trade = {obj["symbol"]: obj for obj in await nepseAsync.getTopTenTradeScrips()}
-    gainers = {obj["symbol"]: obj for obj in await nepseAsync.getTopGainers()}
-    losers = {obj["symbol"]: obj for obj in await nepseAsync.getTopLosers()}
-    price_vol_info = {obj["symbol"]: obj for obj in await nepseAsync.getPriceVolume()}
+    companies_raw = await nepseAsync.getCompanyList()
+    check = _ensure_list_of_dicts("CompanyList", companies_raw)
+    if "error" in check:
+        logger.error("CompanyList payload shape error: %s | %s", check["error"], _describe_payload(companies_raw))
+        return {"error": check["error"]}
+    companies = {company["symbol"]: company for company in companies_raw}
+
+    turnover_raw = await nepseAsync.getTopTenTurnoverScrips()
+    check = _ensure_list_of_dicts("TopTenTurnoverScrips", turnover_raw)
+    if "error" in check:
+        logger.error("TopTenTurnoverScrips payload shape error: %s | %s", check["error"], _describe_payload(turnover_raw))
+        return {"error": check["error"]}
+    turnover = {obj["symbol"]: obj for obj in turnover_raw}
+
+    transaction_raw = await nepseAsync.getTopTenTransactionScrips()
+    check = _ensure_list_of_dicts("TopTenTransactionScrips", transaction_raw)
+    if "error" in check:
+        logger.error("TopTenTransactionScrips payload shape error: %s | %s", check["error"], _describe_payload(transaction_raw))
+        return {"error": check["error"]}
+    transaction = {obj["symbol"]: obj for obj in transaction_raw}
+
+    trade_raw = await nepseAsync.getTopTenTradeScrips()
+    check = _ensure_list_of_dicts("TopTenTradeScrips", trade_raw)
+    if "error" in check:
+        logger.error("TopTenTradeScrips payload shape error: %s | %s", check["error"], _describe_payload(trade_raw))
+        return {"error": check["error"]}
+    trade = {obj["symbol"]: obj for obj in trade_raw}
+
+    gainers_raw = await nepseAsync.getTopGainers()
+    check = _ensure_list_of_dicts("TopGainers", gainers_raw)
+    if "error" in check:
+        logger.error("TopGainers payload shape error: %s | %s", check["error"], _describe_payload(gainers_raw))
+        return {"error": check["error"]}
+    gainers = {obj["symbol"]: obj for obj in gainers_raw}
+
+    losers_raw = await nepseAsync.getTopLosers()
+    check = _ensure_list_of_dicts("TopLosers", losers_raw)
+    if "error" in check:
+        logger.error("TopLosers payload shape error: %s | %s", check["error"], _describe_payload(losers_raw))
+        return {"error": check["error"]}
+    losers = {obj["symbol"]: obj for obj in losers_raw}
+
+    price_vol_raw = await nepseAsync.getPriceVolume()
+    check = _ensure_list_of_dicts("PriceVolume", price_vol_raw)
+    if "error" in check:
+        logger.error("PriceVolume payload shape error: %s | %s", check["error"], _describe_payload(price_vol_raw))
+        return {"error": check["error"]}
+    price_vol_info = {obj["symbol"]: obj for obj in price_vol_raw}
     sector_sub_indices = await _get_nepse_subindices()
     sector_mapper = {
         "Commercial Banks": "Banking SubIndex",
