@@ -3,6 +3,7 @@ import websockets
 from nepse import AsyncNepse
 import json
 import logging
+import os
 
 # Import validation utilities
 from validator import validate_stock_symbol, validate_index_name
@@ -257,8 +258,9 @@ async def ws_listener(websocket, path=None):
 
 # Start WebSocket server on all interfaces
 async def start_ws_server():
-    server = await websockets.serve(ws_listener, "0.0.0.0", 5555)
-    print("WebSocket server started on ws://0.0.0.0:5555")
+    port = int(os.getenv("PORT", "5555"))
+    server = await websockets.serve(ws_listener, "0.0.0.0", port)
+    print(f"WebSocket server started on ws://0.0.0.0:{port}")
     await server.wait_closed()
 
 # Running the WebSocket server
