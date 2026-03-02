@@ -286,6 +286,7 @@ async def ws_listener(websocket, path=None):
                 if not allowed:
                     await websocket.send(json.dumps({
                         "error": "Rate limit exceeded for messages",
+                        "route": request.get("route"),
                         "limit": info["limit"],
                         "remaining": info["remaining"],
                         "reset_time": info["reset_time"]
@@ -304,6 +305,7 @@ async def ws_listener(websocket, path=None):
                 # Structure response with messageId
                 response = {
                     "messageId": message_id,
+                    "route": route,
                     "data": response_data,
                     "rate_limit": {
                         "remaining": info["remaining"],
@@ -321,6 +323,7 @@ async def ws_listener(websocket, path=None):
             except Exception as route_error:
                 await websocket.send(json.dumps({
                     "messageId": message_id if 'message_id' in locals() else None,
+                    "route": route if 'route' in locals() else None,
                     "error": str(route_error)
                 }))
 
