@@ -334,7 +334,7 @@ async def ws_listener(websocket, path=None):
 
 # Start WebSocket server on all interfaces
 async def start_ws_server():
-    port = int(os.getenv("PORT", "5555"))
+    port = int(os.getenv("WS_PORT", "5555"))
     server = await websockets.serve(ws_listener, "0.0.0.0", port)
     print(f"WebSocket server started on ws://0.0.0.0:{port}")
     await server.wait_closed()
