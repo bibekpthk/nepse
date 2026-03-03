@@ -34,7 +34,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-PORT = int(os.environ.get("PORT", 9000))
+PORT = int(os.environ.get("MCP_PORT", 9000))
 
 
 mcp = FastMCP(

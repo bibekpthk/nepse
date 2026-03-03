@@ -7,6 +7,7 @@ import subprocess
 import sys
 import time
 import signal
+import os
 from pathlib import Path
 
 class ServerManager:
@@ -30,11 +31,12 @@ class ServerManager:
 
     def start_fastapi_server(self):
         """Start the FastAPI server"""
-        print("Starting FastAPI server on port 8000...")
+        port = int(os.environ.get("PORT", 8000))
+        print(f"Starting FastAPI server on port {port}...")
         process = subprocess.Popen([
             sys.executable, "-m", "uvicorn", "server:app",
             "--host", "0.0.0.0",
-            "--port", "8000",
+            "--port", str(port),
             "--reload"
         ])
         self.processes.append(process)
@@ -51,7 +53,8 @@ class ServerManager:
 
     def start_mcp_server(self):
         """Start the MCP server"""
-        print("Starting MCP server on port 9000...")
+        mcp_port = int(os.environ.get("MCP_PORT", 9000))
+        print(f"Starting MCP server on port {mcp_port}...")
         process = subprocess.Popen([
             sys.executable, "mcp_server.py"
         ])
@@ -94,11 +97,13 @@ class ServerManager:
             print("WebSocket server started successfully!")
 
             print("\nAvailable endpoints:")
-            print("  - Health check: http://localhost:8000/health")
-            print("  - API docs: http://localhost:8000/docs")
-            print("  - Main page: http://localhost:8000/")
+            fastapi_port = int(os.environ.get("PORT", 8000))
+            print(f"  - Health check: http://localhost:{fastapi_port}/health")
+            print(f"  - API docs: http://localhost:{fastapi_port}/docs")
+            print(f"  - Main page: http://localhost:{fastapi_port}/")
             print("  - WebSocket: ws://localhost:5555")
-            print("  - MCP server: http://0.0.0.0:9000/mcp")
+            mcp_port = int(os.environ.get("MCP_PORT", 9000))
+            print(f"  - MCP server: http://0.0.0.0:{mcp_port}/mcp")
 
             print("\nServers are running. Press Ctrl+C to stop.")
 
