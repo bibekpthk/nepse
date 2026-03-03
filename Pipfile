@@ -13,6 +13,7 @@ httptools = ">=0.6.4"
 nepse = {git = "https://github.com/surajrimal07/NepseUnofficialApi.git", ref = "master"}
 uvloop = {version = ">=0.21.0", platform_system = "!= 'Windows'"}
 fastmcp = "==2.10.1"
+pydantic = "<2.10"
 
 [requires]
 python_version = "3.11"
