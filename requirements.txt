@@ -1,7 +1,7 @@
 fastapi==0.115.14
 nepse @ git+https://github.com/basic-bgnr/NepseUnofficialApi.git@dev #dev branch
 #nepse @ git+https://github.com/surajrimal07/NepseUnofficialApi.git  #@master
-uvicorn==0.34.0
+uvicorn==0.35.0
 websockets==14.1
 uvloop; sys_platform != 'win32'  # Install uvloop only on non-Windows platforms
 httptools>=0.6.4

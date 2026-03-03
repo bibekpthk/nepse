@@ -7,7 +7,7 @@ verify_ssl = true
 
  [packages]
 fastapi = "==0.115.6"
-uvicorn = "==0.34.0"
+uvicorn = "==0.35.0"
 websockets = "==14.1"
 httptools = ">=0.6.4"
 nepse = {git = "https://github.com/surajrimal07/NepseUnofficialApi.git", ref = "master"}
