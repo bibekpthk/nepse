@@ -14,8 +14,8 @@ fastapi = "==0.115.6"
 uvicorn = "==0.34.0"
 websockets = "==14.1"
 httptools = ">=0.6.4"
-fastmcp = "==2.10.1"
-pydantic = "<2.10"
+fastmcp = "==2.14.5"
+pydantic = ">=2.11.7,<3.0.0"
 
 [project.urls]
 nepse = "git+https://github.com/surajrimal07/NepseUnofficialApi.git"
