@@ -44,12 +44,7 @@ class ServerManager:
 
     def start_websocket_server(self):
         """Start the WebSocket server"""
-        print("Starting WebSocket server on port 5555...")
-        process = subprocess.Popen([
-            sys.executable, "socketServer.py"
-        ])
-        self.processes.append(process)
-        return process
+        raise RuntimeError("WebSocket server is hosted by FastAPI in /ws")
 
     def start_mcp_server(self):
         """Start the MCP server"""
@@ -80,28 +75,18 @@ class ServerManager:
 
             print("FastAPI server started successfully!")
 
-            # Start WebSocket server
-            websocket_process = self.start_websocket_server()
-
             # Start MCP server
             mcp_process = self.start_mcp_server()
 
-            # Wait a moment for WebSocket server to start
+            # Wait a moment for MCP server to start
             time.sleep(2)
-
-            # Check if WebSocket server started successfully
-            if websocket_process.poll() is not None:
-                print("Failed to start WebSocket server")
-                return
-
-            print("WebSocket server started successfully!")
 
             print("\nAvailable endpoints:")
             fastapi_port = int(os.environ.get("PORT", 8000))
             print(f"  - Health check: http://localhost:{fastapi_port}/health")
             print(f"  - API docs: http://localhost:{fastapi_port}/docs")
             print(f"  - Main page: http://localhost:{fastapi_port}/")
-            print("  - WebSocket: ws://localhost:5555")
+            print(f"  - WebSocket: ws://localhost:{fastapi_port}/ws")
             mcp_port = int(os.environ.get("MCP_PORT", 9000))
             print(f"  - MCP server: http://0.0.0.0:{mcp_port}/mcp")
 
@@ -114,10 +99,6 @@ class ServerManager:
                 # Check if processes are still running
                 if fastapi_process.poll() is not None:
                     print("FastAPI server stopped unexpectedly")
-                    break
-
-                if websocket_process.poll() is not None:
-                    print("WebSocket server stopped unexpectedly")
                     break
 
                 if mcp_process.poll() is not None:

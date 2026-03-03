@@ -3,6 +3,4 @@ services:
     image: surajrimal/nepseapi:latest
     ports:
       - "8000:8000"
-      - "5555:5555"
       - "9000:9000"
-

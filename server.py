@@ -1,6 +1,7 @@
-from fastapi import FastAPI, HTTPException, Response, Request
+from fastapi import FastAPI, HTTPException, Response, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from nepse import AsyncNepse
+import json
 import logging
 import time
 
@@ -73,6 +74,18 @@ def validate_index_or_raise(index_name: str) -> str:
             error_msg += f" Available indices: {', '.join(validation_result['available_indices'])}"
         raise HTTPException(status_code=400, detail=error_msg)
     return validation_result["index_name"]
+
+def validate_stock_or_return_error(symbol: str):
+    """Validate stock symbol and return error dict if invalid (for WebSocket)."""
+    if not symbol:
+        return {"error": "Symbol is required"}
+    validation_result = validate_stock_symbol(symbol)
+    if not validation_result["valid"]:
+        error_msg = validation_result["error"]
+        if validation_result.get("suggestions"):
+            error_msg += f" Suggestions: {', '.join(validation_result['suggestions'])}"
+        return {"error": error_msg}
+    return {"valid": True, "symbol": validation_result["symbol"]}
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -415,6 +428,10 @@ async def getSecurityList():
 
 @app.get(routes["TradeTurnoverTransactionSubindices"])
 async def getTradeTurnoverTransactionSubindices():
+    data = await _get_trade_turnover_transaction_subindices()
+    return JSONResponse(content=data, headers=HEADERS)
+
+async def _get_trade_turnover_transaction_subindices():
     companies = {company["symbol"]: company for company in await nepseAsync.getCompanyList()}
 
     turnover = {obj["symbol"]: obj for obj in await nepseAsync.getTopTenTurnoverScrips()}
@@ -501,7 +518,122 @@ async def getTradeTurnoverTransactionSubindices():
             "sectorName": sector,
         }
 
-    return JSONResponse({"scripsDetails": scrips_details, "sectorsDetails": sector_details}, headers=HEADERS)
+    return {"scripsDetails": scrips_details, "sectorsDetails": sector_details}
+
+async def handle_ws_route(route: str, params: dict):
+    # Routes that require symbol validation
+    symbol_routes = ["DailyScripPriceGraph", "CompanyDetails", "PriceVolumeHistory", "FloorsheetOf"]
+
+    # Validate symbol if route requires it
+    if route in symbol_routes:
+        symbol = params.get("symbol")
+        validation_result = validate_stock_or_return_error(symbol)
+        if "error" in validation_result:
+            return validation_result
+        params = {**params, "symbol": validation_result["symbol"]}
+
+    route_handlers = {
+        "Summary": lambda: _get_summary(),
+        "NepseIndex": lambda: _get_nepse_index(),
+        "LiveMarket": lambda: nepseAsync.getLiveMarket(),
+        "TopTenTradeScrips": lambda: nepseAsync.getTopTenTradeScrips(),
+        "TopTenTransactionScrips": lambda: nepseAsync.getTopTenTransactionScrips(),
+        "TopTenTurnoverScrips": lambda: nepseAsync.getTopTenTurnoverScrips(),
+        "TopGainers": lambda: nepseAsync.getTopGainers(),
+        "TopLosers": lambda: nepseAsync.getTopLosers(),
+        "IsNepseOpen": lambda: nepseAsync.isNepseOpen(),
+        "DailyNepseIndexGraph": lambda: nepseAsync.getDailyNepseIndexGraph(),
+        "DailySensitiveIndexGraph": lambda: nepseAsync.getDailySensitiveIndexGraph(),
+        "DailyFloatIndexGraph": lambda: nepseAsync.getDailyFloatIndexGraph(),
+        "DailySensitiveFloatIndexGraph": lambda: nepseAsync.getDailySensitiveFloatIndexGraph(),
+        "DailyBankSubindexGraph": lambda: nepseAsync.getDailyBankSubindexGraph(),
+        "DailyDevelopmentBankSubindexGraph": lambda: nepseAsync.getDailyDevelopmentBankSubindexGraph(),
+        "DailyFinanceSubindexGraph": lambda: nepseAsync.getDailyFinanceSubindexGraph(),
+        "DailyHotelTourismSubindexGraph": lambda: nepseAsync.getDailyHotelTourismSubindexGraph(),
+        "DailyHydroPowerSubindexGraph": lambda: nepseAsync.getDailyHydroSubindexGraph(),
+        "DailyInvestmentSubindexGraph": lambda: nepseAsync.getDailyInvestmentSubindexGraph(),
+        "DailyLifeInsuranceSubindexGraph": lambda: nepseAsync.getDailyLifeInsuranceSubindexGraph(),
+        "DailyManufacturingProcessingSubindexGraph": lambda: nepseAsync.getDailyManufacturingSubindexGraph(),
+        "DailyMicrofinanceSubindexGraph": lambda: nepseAsync.getDailyMicrofinanceSubindexGraph(),
+        "DailyMutualFundSubindexGraph": lambda: nepseAsync.getDailyMutualfundSubindexGraph(),
+        "DailyNonLifeInsuranceSubindexGraph": lambda: nepseAsync.getDailyNonLifeInsuranceSubindexGraph(),
+        "DailyOthersSubindexGraph": lambda: nepseAsync.getDailyOthersSubindexGraph(),
+        "DailyTradingSubindexGraph": lambda: nepseAsync.getDailyTradingSubindexGraph(),
+        "DailyScripPriceGraph": lambda: nepseAsync.getDailyScripPriceGraph(params.get("symbol")),
+        "CompanyList": lambda: nepseAsync.getCompanyList(),
+        "SectorScrips": lambda: nepseAsync.getSectorScrips(),
+        "CompanyDetails": lambda: nepseAsync.getCompanyDetails(params.get("symbol")),
+        "PriceVolume": lambda: nepseAsync.getPriceVolume(),
+        "PriceVolumeHistory": lambda: nepseAsync.getCompanyPriceVolumeHistory(params.get("symbol")),
+        "Floorsheet": lambda: nepseAsync.getFloorSheet(),
+        "FloorsheetOf": lambda: nepseAsync.getFloorSheetOf(params.get("symbol")),
+        "SecurityList": lambda: nepseAsync.getSecurityList(),
+        "TradeTurnoverTransactionSubindices": lambda: _get_trade_turnover_transaction_subindices(),
+        "SupplyDemand": lambda: nepseAsync.getSupplyDemand(),
+        "NepseSubIndices": lambda: _get_nepse_subindices(),
+    }
+
+    handler = route_handlers.get(route)
+    if handler:
+        return await handler()
+    return {"error": "Route not found"}
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+
+    client_ip = websocket.client.host if websocket.client else "unknown"
+    forwarded_for = websocket.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        client_ip = forwarded_for.split(",")[0].strip()
+
+    try:
+        while True:
+            message = await websocket.receive_text()
+            try:
+                request = json.loads(message)
+            except json.JSONDecodeError:
+                await websocket.send_text(json.dumps({"error": "Invalid JSON"}))
+                continue
+
+            route = request.get("route")
+            params = request.get("params", {})
+            message_id = request.get("messageId")
+
+            allowed, info = check_rate_limit(client_ip, "websocket_message")
+            if not allowed:
+                await websocket.send_text(json.dumps({
+                    "messageId": message_id,
+                    "route": route,
+                    "error": "Rate limit exceeded for messages",
+                    "rate_limit": {
+                        "remaining": info["remaining"],
+                        "limit": info["limit"],
+                        "reset_time": info["reset_time"]
+                    }
+                }))
+                continue
+
+            response_data = await handle_ws_route(route, params)
+            response = {
+                "messageId": message_id,
+                "route": route,
+                "data": response_data,
+                "rate_limit": {
+                    "remaining": info["remaining"],
+                    "limit": info["limit"],
+                    "reset_time": info["reset_time"]
+                }
+            }
+            await websocket.send_text(json.dumps(response))
+    except WebSocketDisconnect:
+        return
+    except Exception as exc:
+        logger.error("WebSocket Error: %s", exc)
+        try:
+            await websocket.close()
+        except Exception:
+            pass
 
 async def _getNepseSubIndices():
     return {obj["index"]: obj for obj in await nepseAsync.getNepseSubIndices()}

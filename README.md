@@ -88,7 +88,7 @@ A free hosted version is available with rate limiting as a **generous effort** t
 | Service      | URL                                     | Status                                                                                                                                                           |
 |--------------|-----------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **REST API** | `https://nepseapi.surajrimal.dev`         | ![Ping](https://stats.nepsechatbot.com/badge/NepseAPI/dot?animate=ping) ![Uptime](https://stats.nepsechatbot.com/badge/NepseAPI/status)                             |
-| **WebSocket**| `wss://nepseapiws.surajrimal.dev/`        | ![Ping](https://stats.nepsechatbot.com/badge/NepseAPIWS/dot?animate=ping) ![Uptime](https://stats.nepsechatbot.com/badge/NepseAPIWS/status)                         |
+| **WebSocket**| `wss://<your-host>/ws`        | ![Ping](https://stats.nepsechatbot.com/badge/NepseAPIWS/dot?animate=ping) ![Uptime](https://stats.nepsechatbot.com/badge/NepseAPIWS/status)                         |
 | **MCP Server**| `https://nepseapimcp.surajrimal.dev/mcp/` | ![Ping](https://stats.nepsechatbot.com/badge/NepseAPIMCP/dot?animate=ping) ![Uptime](https://stats.nepsechatbot.com/badge/NepseAPIMCP/status)                       |
 
 
@@ -161,7 +161,6 @@ python start_servers.py
 
 # Or start individual components
 python server.py          # FastAPI server
-python socketServer.py    # WebSocket server
 python mcp_server.py      # MCP server
 ```
 
@@ -171,19 +170,16 @@ python mcp_server.py      # MCP server
 # Start REST API server
 python server.py
 
-# Start WebSocket server
-python socketServer.py
-
 # Start MCP server (for AI integration)
 python mcp_server.py
 ```
 
-### WebSocket Server Usage
+### WebSocket Usage
 
-The WebSocket server provides a persistent, real-time connection for receiving NEPSE data. It's ideal for applications that need live updates without constant polling.
+The WebSocket endpoint is hosted by the FastAPI server, providing a persistent, real-time connection for receiving NEPSE data. It's ideal for applications that need live updates without constant polling.
 
 **Connecting to the Server:**
-Connect your WebSocket client to `ws://localhost:5555` (or `wss://nepseapiws.surajrimal.dev/` for the hosted version).
+Connect your WebSocket client to `ws://localhost:8000/ws` (or `wss://<your-render-app>/ws` for the hosted version).
 
 **Communication Protocol:**
 Communication is done via JSON messages.
@@ -349,7 +345,7 @@ curl "https://nepseapi.surajrimal.dev/validate/stock/NABIL"
 **WebSocket Connection:**
 ```javascript
 // Connect to hosted WebSocket
-const ws = new WebSocket('wss://nepseapiws.surajrimal.dev/');
+const ws = new WebSocket('wss://<your-host>/ws');
 ws.onmessage = (event) => console.log(JSON.parse(event.data));
 ```
 
@@ -389,14 +385,14 @@ ws.onmessage = (event) => console.log(JSON.parse(event.data));
 docker build -t nepseapi .
 
 # Run the container
-docker run -p 8000:8000 -p 5555:5555 -p 8080:8080 nepseapi
+docker run -p 8000:8000 -p 8080:8080 nepseapi
 ```
 
 ### Using Docker Hub Image
 
 ```bash
 # Pull and run from Docker Hub
-docker run -p 8000:8000 -p 5555:5555 -p 8080:8080 -p 9000:9000 surajrimal/nepseapi:latest
+docker run -p 8000:8000 -p 8080:8080 -p 9000:9000 surajrimal/nepseapi:latest
 ```
 
 ### Docker Compose (Recommended)
@@ -416,7 +412,7 @@ docker-compose down
 
 The Docker Compose setup includes:
 - **REST API**: Port 8000
-- **WebSocket Server**: Port 5555
+- **WebSocket**: Same port as FastAPI (`/ws`)
 - **MCP Server**: Port 8080
 - **Health Checks**: Automatic service monitoring
 - **Restart Policies**: Automatic recovery
